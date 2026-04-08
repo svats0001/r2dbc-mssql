@@ -248,11 +248,12 @@ public final class RpcEncoding {
      * @param allocator  the allocator to allocate encoding buffers.
      * @param serverType the server data type. Used to derive the max length.
      * @param dataBytes  the data to send, in byte array format
+     * @param isNullEncoding if data bytes contain an encoded null value
      * @return the encoded value.
      */
-    public static Encoded encodeLongLenTypeStrategyByteArray(ByteBufAllocator allocator, SqlServerType serverType, byte[] dataBytes, boolean isNull) {
+    public static Encoded encodeLongLenTypeStrategyUDTByteArray(ByteBufAllocator allocator, SqlServerType serverType, byte[] dataBytes, boolean isNullEncoding) {
         
-        if (isNull) {
+        if (isNullEncoding) {
             return new HintedEncoded(TdsDataType.UDT, serverType, () -> Unpooled.wrappedBuffer(dataBytes));
         }
 
