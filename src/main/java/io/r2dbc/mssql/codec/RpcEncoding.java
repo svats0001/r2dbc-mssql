@@ -241,6 +241,22 @@ public final class RpcEncoding {
             return buffer;
         });
     }
+    
+    /**
+     * Encode a byte array that uses {@code LONGLENTYPE} type strategy and {@code TdsDataType.UDT} into ByteBuf
+     *
+     * @param allocator  the allocator to allocate encoding buffers.
+     * @param serverType the server data type. Used to derive the max length.
+     * @param dataBytes  the data to send, in byte array format
+     * @return the encoded value.
+     */
+    public static Encoded encodeLongLenTypeStrategyByteArray(ByteBufAllocator allocator, SqlServerType serverType, byte[] dataBytes) {
+        
+        ByteBuf buffer = prepareBuffer(allocator, LengthStrategy.LONGLENTYPE, serverType.getMaxLength(), dataBytes.length);
+        buffer.writeBytes(dataBytes);
+
+        return new HintedEncoded(TdsDataType.UDT, serverType, () -> buffer);
+    }
 
     static ByteBuf prepareBuffer(ByteBufAllocator allocator, LengthStrategy lengthStrategy, int maxLength, int length) {
 
@@ -272,6 +288,14 @@ public final class RpcEncoding {
                 Encode.uShort(buffer, length);
 
                 return buffer;
+            case LONGLENTYPE:
+
+                buffer = allocator.buffer(4 + 4 + length);
+                Encode.asLong(buffer, maxLength);
+                Encode.asLong(buffer, length);
+
+                return buffer;
+
             default:
                 throw new UnsupportedOperationException(lengthStrategy.toString());
         }

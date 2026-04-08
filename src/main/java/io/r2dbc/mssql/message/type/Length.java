@@ -163,7 +163,9 @@ public final class Length {
                     return Length.of(valueLength, false);
                 }
 
-                if (serverType == SqlServerType.SQL_VARIANT) {
+                if (serverType == SqlServerType.SQL_VARIANT || serverType == SqlServerType.GEOGRAPHY
+                    || serverType == SqlServerType.GEOMETRY)
+                {
                     int valueLength = Decode.asInt(buffer);
                     return Length.of(valueLength, valueLength == 0);
                 }
@@ -261,7 +263,8 @@ public final class Length {
                 return;
             }
 
-            if (serverType == SqlServerType.SQL_VARIANT) {
+            if (serverType == SqlServerType.SQL_VARIANT || serverType == SqlServerType.GEOGRAPHY
+                    || serverType == SqlServerType.GEOMETRY) {
 
                 Encode.intBigEndian(buffer, getLength());
                 return;

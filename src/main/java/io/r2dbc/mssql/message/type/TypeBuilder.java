@@ -369,6 +369,22 @@ enum TypeBuilder {
 
     // TODO: UDT, XML
 
+    UDT(TdsDataType.UDT, new AbstractTypeDecoderStrategy(4) {
+        
+        @Override
+        public void decode(MutableTypeInformation typeInfo, ByteBuf buffer) {
+
+            typeInfo.lengthStrategy = LengthStrategy.LONGLENTYPE;
+            typeInfo.maxLength = Decode.asLong(buffer);
+
+            if (typeInfo.userType == 129) {
+                typeInfo.serverType = SqlServerType.GEOMETRY;
+            } else if (typeInfo.userType == 130) {
+                typeInfo.serverType = SqlServerType.GEOGRAPHY;
+            }
+        }
+    }),
+
     SQL_VARIANT(TdsDataType.SQL_VARIANT, new AbstractTypeDecoderStrategy(4) {
 
         @Override
