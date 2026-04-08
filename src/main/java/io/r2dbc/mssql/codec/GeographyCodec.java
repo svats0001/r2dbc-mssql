@@ -61,7 +61,7 @@ final class GeographyCodec extends AbstractCodec<Geography> {
 
     @Override
     Encoded doEncode(ByteBufAllocator allocator, RpcParameterContext context, Geography value) {
-        return RpcEncoding.encodeLongLenTypeStrategyByteArray(allocator, SqlServerType.GEOGRAPHY, value.serialize());
+        return RpcEncoding.encodeLongLenTypeStrategyByteArray(allocator, SqlServerType.GEOGRAPHY, value.serialize(), false);
     }
 
     @Override
@@ -71,12 +71,12 @@ final class GeographyCodec extends AbstractCodec<Geography> {
 
     @Override
     public Encoded encodeNull(ByteBufAllocator allocator, SqlServerType serverType) {
-        return new Encoded(TdsDataType.UDT, () -> Unpooled.wrappedBuffer(NULL));
+        return RpcEncoding.encodeLongLenTypeStrategyByteArray(allocator, SqlServerType.GEOGRAPHY, NULL, true);
     }
 
     @Override
     Encoded doEncodeNull(ByteBufAllocator allocator) {
-        return new Encoded(TdsDataType.UDT, () -> Unpooled.wrappedBuffer(NULL));
+        return RpcEncoding.encodeLongLenTypeStrategyByteArray(allocator, SqlServerType.GEOGRAPHY, NULL, true);
     }
 
     @Override

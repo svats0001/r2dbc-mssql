@@ -250,8 +250,12 @@ public final class RpcEncoding {
      * @param dataBytes  the data to send, in byte array format
      * @return the encoded value.
      */
-    public static Encoded encodeLongLenTypeStrategyByteArray(ByteBufAllocator allocator, SqlServerType serverType, byte[] dataBytes) {
+    public static Encoded encodeLongLenTypeStrategyByteArray(ByteBufAllocator allocator, SqlServerType serverType, byte[] dataBytes, boolean isNull) {
         
+        if (isNull) {
+            return new HintedEncoded(TdsDataType.UDT, serverType, () -> Unpooled.wrappedBuffer(dataBytes));
+        }
+
         ByteBuf buffer = prepareBuffer(allocator, LengthStrategy.LONGLENTYPE, serverType.getMaxLength(), dataBytes.length);
         buffer.writeBytes(dataBytes);
 

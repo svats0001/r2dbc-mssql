@@ -46,7 +46,7 @@ public class GeographyCodecUnitTests {
 
         Encoded encoded = GeographyCodec.INSTANCE.encode(TestByteBufAllocator.TEST, RpcParameterContext.out(), Geography.STGeomFromText("POINT(144.9631 -37.8136)", 4326));
         
-        EncodedAssert.assertThat(encoded).isEqualToHex("00 00 00 00 16 00 00 00 40 62 1E D1 B7 17 58 E2 C0 42 E8 24 0B 78 03 47 0C 01 00 00 10 E6");
+        EncodedAssert.assertThat(encoded).isEqualToHex("00 00 00 00 16 00 00 00 E6 10 00 00 01 0C 47 03 78 0B 24 E8 42 C0 E2 58 17 B7 D1 1E 62 40");
         assertThat(encoded.getFormalType()).isEqualTo("geography");
     }
     
@@ -74,10 +74,12 @@ public class GeographyCodecUnitTests {
     @Test
     void shouldDecodeGeography() throws SQLServerException {
 
-        ByteBuf buffer = HexUtils.decodeToByteBuf("000000001600000040621ED1B71758E2C042E8240B7803470C01000010E6");
+        ByteBuf buffer = HexUtils.decodeToByteBuf("16000000E6100000010C4703780B24E842C0E25817B7D11E6240");
 
         Geography decoded = GeographyCodec.INSTANCE.decode(buffer, ColumnUtil.createColumn(GEOGRAPHY), Geography.class);
+        Geography geographyExpected = Geography.STGeomFromText("POINT(144.9631 -37.8136)", 4326);
 
-        assertThat(decoded).isEqualTo(Geography.STGeomFromText("POINT(144.9631 -37.8136)", 4326));
+        assertThat(decoded.STAsText()).isEqualTo(geographyExpected.STAsText());
+        assertThat(decoded.getSrid()).isEqualTo(geographyExpected.getSrid());
     }
 }

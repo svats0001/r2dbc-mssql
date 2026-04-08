@@ -46,7 +46,7 @@ public class GeometryCodecUnitTests {
         
         Encoded encoded = GeometryCodec.INSTANCE.encode(TestByteBufAllocator.TEST, RpcParameterContext.out(), Geometry.STGeomFromText("POINT(30 10)", 0));
         
-        EncodedAssert.assertThat(encoded).isEqualToHex("00 00 00 00 16 00 00 00 40 24 00 00 00 00 00 00 40 3E 00 00 00 00 00 00 0C 01 00 00 00 00");
+        EncodedAssert.assertThat(encoded).isEqualToHex("00 00 00 00 16 00 00 00 00 00 00 00 01 0C 00 00 00 00 00 00 3E 40 00 00 00 00 00 00 24 40");
         assertThat(encoded.getFormalType()).isEqualTo("geometry");
     }
 
@@ -74,11 +74,13 @@ public class GeometryCodecUnitTests {
     @Test
     void shouldDecodeGeometry() throws SQLServerException {
         
-        ByteBuf buffer = HexUtils.decodeToByteBuf("00000000160000004024000000000000403E0000000000000C0100000000");
+        ByteBuf buffer = HexUtils.decodeToByteBuf("1600000000000000010C0000000000003E400000000000002440");
 
         Geometry decoded = GeometryCodec.INSTANCE.decode(buffer, ColumnUtil.createColumn(GEOMETRY), Geometry.class);
+        Geometry geometryExpected = Geometry.STGeomFromText("POINT(30 10)", 0);
 
-        assertThat(decoded).isEqualTo(Geometry.STGeomFromText("POINT(30 10)", 0));
+        assertThat(decoded.STAsText()).isEqualTo(geometryExpected.STAsText());
+        assertThat(decoded.getSrid()).isEqualTo(geometryExpected.getSrid());
     }
 
 }

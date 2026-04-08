@@ -45,7 +45,7 @@ public class GeometryCodec extends AbstractCodec<Geometry> {
 
     @Override
     Encoded doEncode(ByteBufAllocator allocator, RpcParameterContext context, Geometry value) {
-        return RpcEncoding.encodeLongLenTypeStrategyByteArray(allocator, SqlServerType.GEOMETRY, value.serialize());
+        return RpcEncoding.encodeLongLenTypeStrategyByteArray(allocator, SqlServerType.GEOMETRY, value.serialize(), false);
     }
 
     @Override
@@ -55,12 +55,12 @@ public class GeometryCodec extends AbstractCodec<Geometry> {
 
     @Override
     public Encoded encodeNull(ByteBufAllocator allocator, SqlServerType serverType) {
-        return new Encoded(TdsDataType.UDT, () -> Unpooled.wrappedBuffer(NULL));
+        return RpcEncoding.encodeLongLenTypeStrategyByteArray(allocator, SqlServerType.GEOMETRY, NULL, true);
     }
 
     @Override
     Encoded doEncodeNull(ByteBufAllocator allocator) {
-        return new Encoded(TdsDataType.UDT, () -> Unpooled.wrappedBuffer(NULL));
+        return RpcEncoding.encodeLongLenTypeStrategyByteArray(allocator, SqlServerType.GEOMETRY, NULL, true);
     }
     
     @Override
