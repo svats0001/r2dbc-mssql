@@ -112,10 +112,6 @@ public class PlpEncoded extends Encoded {
                 return "VARCHAR(MAX)";
             case NVARCHARMAX:
                 return "NVARCHAR(MAX)";
-            case GEOGRAPHY:
-                return "GEOGRAPHY";
-            case GEOMETRY:
-                return "GEOMETRY";
         }
 
         throw new UnsupportedOperationException("Type " + this.serverType + " not supported");
