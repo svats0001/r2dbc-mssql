@@ -24,7 +24,7 @@ import io.r2dbc.mssql.message.type.TypeInformation;
  * @author svats0001
  */
 public class GeometryCodec extends AbstractCodec<Geometry> {
-    
+
     /**
      * Singleton instance.
      */
@@ -75,9 +75,8 @@ public class GeometryCodec extends AbstractCodec<Geometry> {
             return null;
         }
         
-        int dataLength = length.getLength();
-        byte[] finalData = new byte[dataLength];
-        buffer.readRetainedSlice(dataLength).readBytes(finalData);
+        byte[] finalData = new byte[length.getLength()];
+        buffer.readBytes(finalData);
 
         try {
             return Geometry.deserialize(finalData);

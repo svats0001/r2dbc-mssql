@@ -91,9 +91,8 @@ final class GeographyCodec extends AbstractCodec<Geography> {
             return null;
         }
 
-        int dataLength = length.getLength();
-        byte[] finalData = new byte[dataLength];
-        buffer.readRetainedSlice(dataLength).readBytes(finalData);
+        byte[] finalData = new byte[length.getLength()];
+        buffer.readBytes(finalData);
 
         try {
             return Geography.deserialize(finalData);
