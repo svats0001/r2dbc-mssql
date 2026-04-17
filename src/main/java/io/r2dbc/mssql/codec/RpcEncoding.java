@@ -272,7 +272,6 @@ public final class RpcEncoding {
                 Encode.uShort(buffer, length);
 
                 return buffer;
-
             default:
                 throw new UnsupportedOperationException(lengthStrategy.toString());
         }

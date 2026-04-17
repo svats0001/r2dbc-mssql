@@ -27,7 +27,6 @@ import io.r2dbc.spi.Parameters;
 import io.r2dbc.spi.R2dbcType;
 import io.r2dbc.spi.Result;
 import io.r2dbc.spi.Type;
-
 import org.junit.jupiter.api.Test;
 
 import com.microsoft.sqlserver.jdbc.Geography;
@@ -408,7 +407,6 @@ class CodecIntegrationTests extends IntegrationTestSupport {
                 .expectNext(1L)
                 .verifyComplete();
         }
-        System.out.println("Completed 2");
 
         if (value instanceof ByteBuffer) {
             ((ByteBuffer) value).rewind();

@@ -163,8 +163,7 @@ public final class Length {
                     return Length.of(valueLength, false);
                 }
 
-                if (serverType == SqlServerType.SQL_VARIANT)
-                {
+                if (serverType == SqlServerType.SQL_VARIANT) {
                     int valueLength = Decode.asInt(buffer);
                     return Length.of(valueLength, valueLength == 0);
                 }

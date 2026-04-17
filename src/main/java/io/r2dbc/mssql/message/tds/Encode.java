@@ -265,7 +265,7 @@ public final class Encode {
     public static void unicodeStream(ByteBuf buffer, String value) {
 
         ByteBuf encoded = ByteBufUtil.encodeString(buffer.alloc(), CharBuffer.wrap(value), ServerCharset.UNICODE.charset());
-        
+
         buffer.writeBytes(encoded);
 
         encoded.release();
