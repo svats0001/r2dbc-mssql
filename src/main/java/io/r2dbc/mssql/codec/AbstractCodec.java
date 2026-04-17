@@ -95,7 +95,7 @@ abstract class AbstractCodec<T> implements Codec<T> {
         if (buffer == null) {
             return null;
         }
-        
+
         Length length = Length.decode(buffer, decodable.getType());
         return doDecode(buffer, length, decodable.getType(), type);
     }

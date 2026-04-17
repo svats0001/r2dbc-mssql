@@ -135,5 +135,4 @@ final class GeographyCodec extends AbstractCodec<Geography> {
             return null;
         }
     }
-
 }

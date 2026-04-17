@@ -119,5 +119,4 @@ public class GeometryCodec extends AbstractCodec<Geometry> {
             return null;
         }
     }
-
 }
