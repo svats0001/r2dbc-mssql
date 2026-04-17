@@ -5,12 +5,13 @@ import com.microsoft.sqlserver.jdbc.SQLServerException;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.Unpooled;
-import io.r2dbc.mssql.message.tds.Encode;
 import io.r2dbc.mssql.message.type.Length;
+import io.r2dbc.mssql.message.type.LengthStrategy;
+import io.r2dbc.mssql.message.type.PlpLength;
 import io.r2dbc.mssql.message.type.SqlServerType;
-import io.r2dbc.mssql.message.type.TdsDataType;
 import io.r2dbc.mssql.message.type.TypeInformation;
+import io.r2dbc.mssql.util.Assert;
+import reactor.util.annotation.Nullable;
 
 /**
  * Codec for date types that are represented as {@link Geometry}.
@@ -29,15 +30,6 @@ public class GeometryCodec extends AbstractCodec<Geometry> {
      * Singleton instance.
      */
     static final GeometryCodec INSTANCE = new GeometryCodec();
-
-    private static final byte[] NULL = ByteArray.fromBuffer((alloc) ->
-    {
-        ByteBuf buffer = alloc.buffer(4);
-        Encode.uShort(buffer, SqlServerType.GEOMETRY.getMaxLength());
-        Encode.uShort(buffer, Length.USHORT_NULL);
-
-        return buffer;
-    });
     
     private GeometryCodec() {
         super(Geometry.class);
@@ -45,7 +37,7 @@ public class GeometryCodec extends AbstractCodec<Geometry> {
 
     @Override
     Encoded doEncode(ByteBufAllocator allocator, RpcParameterContext context, Geometry value) {
-        return RpcEncoding.encodeLongLenTypeStrategyUDTByteArray(allocator, SqlServerType.GEOMETRY, value.serialize(), false);
+        return BinaryCodec.INSTANCE.encode(allocator, context, value.serialize());
     }
 
     @Override
@@ -55,17 +47,44 @@ public class GeometryCodec extends AbstractCodec<Geometry> {
 
     @Override
     public Encoded encodeNull(ByteBufAllocator allocator, SqlServerType serverType) {
-        return RpcEncoding.encodeLongLenTypeStrategyUDTByteArray(allocator, SqlServerType.GEOMETRY, NULL, true);
+        return BinaryCodec.INSTANCE.encodeNull(allocator, serverType);
     }
 
     @Override
     Encoded doEncodeNull(ByteBufAllocator allocator) {
-        return RpcEncoding.encodeLongLenTypeStrategyUDTByteArray(allocator, SqlServerType.GEOMETRY, NULL, true);
+        return BinaryCodec.INSTANCE.encodeNull(allocator);
     }
     
     @Override
     boolean doCanDecode(TypeInformation typeInformation) {
         return typeInformation.getServerType().equals(SqlServerType.GEOMETRY);
+    }
+
+    @Nullable
+    public Geometry decode(@Nullable ByteBuf buffer, Decodable decodable, Class<? extends Geometry> type) {
+
+        Assert.requireNonNull(decodable, "Decodable must not be null");
+        Assert.requireNonNull(type, "Type must not be null");
+
+        if (buffer == null) {
+            return null;
+        }
+
+        Length length;
+
+        if (decodable.getType().getLengthStrategy() == LengthStrategy.PARTLENTYPE) {
+
+            PlpLength plpLength = PlpLength.decode(buffer, decodable.getType());
+            length = Length.of(Math.toIntExact(plpLength.getLength()), plpLength.isNull());
+        } else {
+            length = Length.decode(buffer, decodable.getType());
+        }
+
+        if (length.isNull()) {
+            return null;
+        }
+
+        return doDecode(buffer, length, decodable.getType(), type);
     }
 
     @Override
@@ -74,15 +93,31 @@ public class GeometryCodec extends AbstractCodec<Geometry> {
         if (length.isNull()) {
             return null;
         }
-        
-        byte[] finalData = new byte[length.getLength()];
-        buffer.readBytes(finalData);
 
+        byte[] geometryBytes = new byte[length.getLength()];
+
+        if (type.getLengthStrategy() == LengthStrategy.PARTLENTYPE) {
+
+            int dstIndex = 0;
+            while (buffer.isReadable()) {
+                int chunkLength = Length.decode(buffer, type).getLength();
+                buffer.readBytes(geometryBytes, dstIndex, chunkLength);
+                dstIndex += chunkLength;
+            }
+
+            try {
+                return Geometry.deserialize(geometryBytes);
+            } catch (SQLServerException exc) {
+                return null;
+            }
+        }
+
+        buffer.readBytes(geometryBytes);
         try {
-            return Geometry.deserialize(finalData);
+            return Geometry.deserialize(geometryBytes);
         } catch (SQLServerException exc) {
             return null;
         }
-
     }
+
 }

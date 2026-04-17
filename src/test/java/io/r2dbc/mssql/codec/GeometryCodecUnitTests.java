@@ -19,18 +19,23 @@ package io.r2dbc.mssql.codec;
 import static io.r2dbc.mssql.message.type.TypeInformation.builder;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Arrays;
+
 import org.junit.jupiter.api.Test;
 
 import com.microsoft.sqlserver.jdbc.Geometry;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
 
 import io.netty.buffer.ByteBuf;
+import io.r2dbc.mssql.message.type.Length;
 import io.r2dbc.mssql.message.type.LengthStrategy;
+import io.r2dbc.mssql.message.type.PlpLength;
 import io.r2dbc.mssql.message.type.SqlServerType;
 import io.r2dbc.mssql.message.type.TypeInformation;
 import io.r2dbc.mssql.util.EncodedAssert;
-import io.r2dbc.mssql.util.HexUtils;
 import io.r2dbc.mssql.util.TestByteBufAllocator;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 /**
  * Unit tests for {@link GeometryCodec}.
@@ -39,15 +44,15 @@ import io.r2dbc.mssql.util.TestByteBufAllocator;
  */
 public class GeometryCodecUnitTests {
 
-    static final TypeInformation GEOMETRY = builder().withLengthStrategy(LengthStrategy.LONGLENTYPE).withServerType(SqlServerType.GEOMETRY).build();
+    static final TypeInformation GEOMETRY = builder().withLengthStrategy(LengthStrategy.PARTLENTYPE).withServerType(SqlServerType.GEOMETRY).build();
     
     @Test
     void shouldEncodeGeometry() throws SQLServerException {
         
         Encoded encoded = GeometryCodec.INSTANCE.encode(TestByteBufAllocator.TEST, RpcParameterContext.out(), Geometry.STGeomFromText("POINT(30 10)", 0));
         
-        EncodedAssert.assertThat(encoded).isEqualToHex("00 00 00 00 16 00 00 00 00 00 00 00 01 0C 00 00 00 00 00 00 3E 40 00 00 00 00 00 00 24 40");
-        assertThat(encoded.getFormalType()).isEqualTo("geometry");
+        EncodedAssert.assertThat(encoded).isEqualToHex("40 1F 16 00 00 00 00 00 01 0C 00 00 00 00 00 00 3E 40 00 00 00 00 00 00 24 40");
+        assertThat(encoded.getFormalType()).isEqualTo("varbinary(8000)");
     }
 
     @Test
@@ -55,8 +60,8 @@ public class GeometryCodecUnitTests {
 
         Encoded encoded = GeometryCodec.INSTANCE.encodeNull(TestByteBufAllocator.TEST);
 
-        EncodedAssert.assertThat(encoded).isEqualToHex("00 00 FF FF");
-        assertThat(encoded.getFormalType()).isEqualTo("geometry");
+        EncodedAssert.assertThat(encoded).isEqualToHex("40 1F FF FF");
+        assertThat(encoded.getFormalType()).isEqualTo("varbinary(8000)");
     }
 
     @Test
@@ -72,15 +77,36 @@ public class GeometryCodecUnitTests {
     }
 
     @Test
-    void shouldDecodeGeometry() throws SQLServerException {
-        
-        ByteBuf buffer = HexUtils.decodeToByteBuf("1600000000000000010C0000000000003E400000000000002440");
+    void shouldBeAbleToDecodePlpStream() throws SQLServerException {
 
-        Geometry decoded = GeometryCodec.INSTANCE.decode(buffer, ColumnUtil.createColumn(GEOMETRY), Geometry.class);
-        Geometry geometryExpected = Geometry.STGeomFromText("POINT(30 10)", 0);
+        Geometry geometryVal = Geometry.STGeomFromText("POINT(30 10)", 0);
+        byte[] geometryBytes = geometryVal.serialize();
+        byte[] first = Arrays.copyOfRange(geometryBytes, 0, 8);
+        byte[] second = Arrays.copyOfRange(geometryBytes, 8, 15);
+        byte[] third = Arrays.copyOfRange(geometryBytes, 15, 22);
 
-        assertThat(decoded.STAsText()).isEqualTo(geometryExpected.STAsText());
-        assertThat(decoded.getSrid()).isEqualTo(geometryExpected.getSrid());
+        ByteBuf buffer = TestByteBufAllocator.TEST.buffer(20 + 22);
+        PlpLength.of(22).encode(buffer);
+
+        Length.of(8).encode(buffer, GEOMETRY);
+        buffer.writeBytes(first);
+
+        Length.of(7).encode(buffer, GEOMETRY);
+        buffer.writeBytes(second);
+
+        Length.of(7).encode(buffer, GEOMETRY);
+        buffer.writeBytes(third);
+
+        Geometry geometryData = GeometryCodec.INSTANCE.decode(buffer, ColumnUtil.createColumn(GEOMETRY), Geometry.class);
+
+        StepVerifier.create(Mono.fromSupplier(() -> {
+            try {
+                return geometryData.STAsText() + geometryData.getSrid();
+            } catch (SQLServerException e) {
+                return null;
+            }
+        }))
+            .expectNext(geometryVal.STAsText() + geometryVal.getSrid())
+            .verifyComplete();
     }
-
 }

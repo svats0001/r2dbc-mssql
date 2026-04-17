@@ -21,12 +21,13 @@ import com.microsoft.sqlserver.jdbc.SQLServerException;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.Unpooled;
-import io.r2dbc.mssql.message.tds.Encode;
 import io.r2dbc.mssql.message.type.Length;
+import io.r2dbc.mssql.message.type.LengthStrategy;
+import io.r2dbc.mssql.message.type.PlpLength;
 import io.r2dbc.mssql.message.type.SqlServerType;
-import io.r2dbc.mssql.message.type.TdsDataType;
 import io.r2dbc.mssql.message.type.TypeInformation;
+import io.r2dbc.mssql.util.Assert;
+import reactor.util.annotation.Nullable;
 
 /**
  * Codec for date types that are represented as {@link Geography}.
@@ -45,15 +46,6 @@ final class GeographyCodec extends AbstractCodec<Geography> {
      * Singleton instance.
      */
     static final GeographyCodec INSTANCE = new GeographyCodec();
-
-    private static final byte[] NULL = ByteArray.fromBuffer((alloc) ->
-    {
-        ByteBuf buffer = alloc.buffer(4);
-        Encode.uShort(buffer, SqlServerType.GEOGRAPHY.getMaxLength());
-        Encode.uShort(buffer, Length.USHORT_NULL);
-
-        return buffer;
-    });
     
     private GeographyCodec() {
         super(Geography.class);
@@ -61,7 +53,7 @@ final class GeographyCodec extends AbstractCodec<Geography> {
 
     @Override
     Encoded doEncode(ByteBufAllocator allocator, RpcParameterContext context, Geography value) {
-        return RpcEncoding.encodeLongLenTypeStrategyUDTByteArray(allocator, SqlServerType.GEOGRAPHY, value.serialize(), false);
+        return BinaryCodec.INSTANCE.encode(allocator, context, value.serialize());
     }
 
     @Override
@@ -71,17 +63,44 @@ final class GeographyCodec extends AbstractCodec<Geography> {
 
     @Override
     public Encoded encodeNull(ByteBufAllocator allocator, SqlServerType serverType) {
-        return RpcEncoding.encodeLongLenTypeStrategyUDTByteArray(allocator, SqlServerType.GEOGRAPHY, NULL, true);
+        return BinaryCodec.INSTANCE.encodeNull(allocator, serverType);
     }
 
     @Override
     Encoded doEncodeNull(ByteBufAllocator allocator) {
-        return RpcEncoding.encodeLongLenTypeStrategyUDTByteArray(allocator, SqlServerType.GEOGRAPHY, NULL, true);
+        return BinaryCodec.INSTANCE.encodeNull(allocator);
     }
 
     @Override
     boolean doCanDecode(TypeInformation typeInformation) {
         return typeInformation.getServerType().equals(SqlServerType.GEOGRAPHY);
+    }
+
+    @Nullable
+    public Geography decode(@Nullable ByteBuf buffer, Decodable decodable, Class<? extends Geography> type) {
+
+        Assert.requireNonNull(decodable, "Decodable must not be null");
+        Assert.requireNonNull(type, "Type must not be null");
+
+        if (buffer == null) {
+            return null;
+        }
+
+        Length length;
+
+        if (decodable.getType().getLengthStrategy() == LengthStrategy.PARTLENTYPE) {
+
+            PlpLength plpLength = PlpLength.decode(buffer, decodable.getType());
+            length = Length.of(Math.toIntExact(plpLength.getLength()), plpLength.isNull());
+        } else {
+            length = Length.decode(buffer, decodable.getType());
+        }
+
+        if (length.isNull()) {
+            return null;
+        }
+
+        return doDecode(buffer, length, decodable.getType(), type);
     }
 
     @Override
@@ -91,14 +110,30 @@ final class GeographyCodec extends AbstractCodec<Geography> {
             return null;
         }
 
-        byte[] finalData = new byte[length.getLength()];
-        buffer.readBytes(finalData);
+        byte[] geographyBytes = new byte[length.getLength()];
 
+        if (type.getLengthStrategy() == LengthStrategy.PARTLENTYPE) {
+
+            int dstIndex = 0;
+            while (buffer.isReadable()) {
+                int chunkLength = Length.decode(buffer, type).getLength();
+                buffer.readBytes(geographyBytes, dstIndex, chunkLength);
+                dstIndex += chunkLength;
+            }
+
+            try {
+                return Geography.deserialize(geographyBytes);
+            } catch (SQLServerException exc) {
+                return null;
+            }
+        }
+
+        buffer.readBytes(geographyBytes);
         try {
-            return Geography.deserialize(finalData);
+            return Geography.deserialize(geographyBytes);
         } catch (SQLServerException exc) {
             return null;
         }
-
     }
+
 }

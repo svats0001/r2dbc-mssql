@@ -374,14 +374,20 @@ enum TypeBuilder {
         @Override
         public void decode(MutableTypeInformation typeInfo, ByteBuf buffer) {
 
-            typeInfo.lengthStrategy = LengthStrategy.LONGLENTYPE;
-            typeInfo.maxLength = Decode.asLong(buffer);
+            typeInfo.lengthStrategy = LengthStrategy.PARTLENTYPE;
+            typeInfo.maxLength = Decode.smallInt(buffer);
+            Decode.unicodeBString(buffer);
+            Decode.unicodeBString(buffer);
+            typeInfo.udtTypeName = Decode.unicodeBString(buffer);
+            Decode.unicodeUString(buffer);
 
-            if (typeInfo.userType == 129) {
-                typeInfo.serverType = SqlServerType.GEOMETRY;
-            } else if (typeInfo.userType == 130) {
+            if (typeInfo.udtTypeName.equals("geography")) {
                 typeInfo.serverType = SqlServerType.GEOGRAPHY;
+            } else if (typeInfo.udtTypeName.equals("geometry")) {
+                typeInfo.serverType = SqlServerType.GEOMETRY;
             }
+
+            Assert.state(typeInfo.serverType != null, "UDT types other than Geography or Geometry not supported");
         }
     }),
 
